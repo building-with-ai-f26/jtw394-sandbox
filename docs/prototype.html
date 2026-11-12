@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>50 or Less</title>
+<style>
+  :root {
+    --bg: #f6f4ef; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66;
+    --line: #e2dfd7; --accent: #d9480f; --accent-ink: #ffffff; --ok: #2b8a3e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614; --panel: #1f1f1c; --ink: #ecebe6; --muted: #9a9890;
+      --line: #33322e; --accent: #ff7a3d; --accent-ink: #161614; --ok: #69db7c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header { padding: 28px 24px 8px; max-width: 1200px; width: 100%; margin: 0 auto; }
+  h1 { margin: 0; font-size: 2rem; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main {
+    flex: 1; display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px;
+    padding: 16px 24px 24px; max-width: 1200px; width: 100%; margin: 0 auto;
+  }
+  .pane {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    display: flex; flex-direction: column; min-height: 420px; overflow: hidden;
+  }
+  .pane-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+  }
+  textarea {
+    flex: 1; border: 0; resize: none; padding: 16px; background: transparent;
+    color: var(--ink); font: inherit; outline: none;
+  }
+  #output { flex: 1; padding: 16px; font-size: 1.15rem; line-height: 1.6; white-space: pre-wrap; }
+  #output.empty { color: var(--muted); font-size: 1rem; font-style: italic; }
+  .middle { display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--ink); padding: 8px 14px;
+  }
+  button.primary {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+    font-weight: 600; padding: 14px 20px;
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .link { border: 0; background: none; color: var(--muted); padding: 0; font-size: .8rem;
+          text-transform: uppercase; letter-spacing: .08em; }
+  .link:hover { color: var(--ink); }
+  .meter { height: 4px; background: var(--line); }
+  .meter div { height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+  .foot { padding: 10px 16px; border-top: 1px solid var(--line); display: flex;
+          justify-content: space-between; align-items: center; font-size: .85rem; color: var(--muted); }
+  .count strong { color: var(--ink); }
+  .hint { font-size: .75rem; color: var(--muted); text-align: center; }
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; padding: 12px 16px 16px; }
+    header { padding: 20px 16px 4px; }
+    .pane { min-height: 260px; }
+    .middle { flex-direction: row; justify-content: stretch; }
+    .middle .primary { flex: 1; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>50</span> or Less</h1>
+  <p>Paste any block of text. Get the gist in fifty words or fewer.</p>
+</header>
+
+<main>
+  <section class="pane">
+    <div class="pane-head">
+      <span>Input</span>
+      <span>
+        <button class="link" id="sampleBtn">Sample</button> ·
+        <button class="link" id="clearBtn">Clear</button>
+      </span>
+    </div>
+    <textarea id="input" placeholder="Paste or type your text here…"></textarea>
+    <div class="foot"><span class="count" id="inCount"><strong>0</strong> words</span></div>
+  </section>
+
+  <div class="middle">
+    <button class="primary" id="goBtn" disabled>Condense →</button>
+    <div class="hint">Ctrl / ⌘ + Enter</div>
+  </div>
+
+  <section class="pane">
+    <div class="pane-head">
+      <span>Summary</span>
+      <button class="link" id="copyBtn" disabled>Copy</button>
+    </div>
+    <div class="meter"><div id="meterBar"></div></div>
+    <div id="output" class="empty">Your summary will appear here.</div>
+    <div class="foot">
+      <span class="count" id="outCount"><strong>0</strong> / 50 words</span>
+      <span id="ratio"></span>
+    </div>
+  </section>
+</main>
+
+<script>
+const LIMIT = 50;
+
+const STOP = new Set(("a about above after again against all also am an and any are as at be because been " +
+  "before being below between both but by can could did do does doing down during each few for from further " +
+  "had has have having he her here hers herself him himself his how i if in into is it its itself just me more " +
+  "most my myself no nor not now of off on once only or other our ours ourselves out over own same she should " +
+  "so some such than that the their theirs them themselves then there these they this those through to too " +
+  "under until up very was we were what when where which while who whom why will with would you your yours " +
+  "yourself yourselves one two may might must shall many much said says say like get got make made us").split(" "));
+
+// Filler that can be dropped without losing meaning.
+const FILLER = [
+  /\b(it is (important|worth) (to note|noting) that)\s*/gi,
+  /\b(it should be noted that)\s*/gi,
+  /^(however|moreover|furthermore|additionally|in addition|indeed|in fact|of course|basically|essentially|ultimately|overall|meanwhile|notably|importantly),\s*/i,
+  /\b(very|really|quite|extremely|actually|simply|literally)\s+/gi,
+];
+
+const countWords = s => (s.trim().match(/\S+/g) || []).length;
+
+function splitSentences(text) {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (!flat) return [];
+  const parts = flat.match(/[^.!?]+(?:[.!?]+["'”’)\]]*|$)/g) || [flat];
+  // Re-join fragments split on common abbreviations / initials.
+  const out = [];
+  for (const p of parts.map(s => s.trim()).filter(Boolean)) {
+    const prev = out[out.length - 1];
+    if (prev && /\b(Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc|e\.g|i\.e|U\.S|[A-Z])\.$/.test(prev)) {
+      out[out.length - 1] = prev + " " + p;
+    } else out.push(p);
+  }
+  return out;
+}
+
+function tokens(s) {
+  return (s.toLowerCase().match(/[a-z0-9][a-z0-9'’-]*/g) || [])
+    .map(w => w.replace(/['’]s$/, ""))
+    .filter(w => w.length > 2 && !STOP.has(w));
+}
+
+function compress(sentence) {
+  let s = sentence.replace(/\s*\([^)]*\)/g, "").replace(/\s*\[[^\]]*\]/g, "");
+  for (const re of FILLER) s = s.replace(re, "");
+  s = s.replace(/\s+([,.;:!?])/g, "$1").replace(/\s{2,}/g, " ").trim();
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
+function trimToLimit(s, limit) {
+  const words = s.split(/\s+/);
+  if (words.length <= limit) return s;
+  let cut = words.slice(0, limit);
+  // Prefer ending at a clause boundary if one exists in the back half.
+  for (let i = cut.length - 1; i >= Math.floor(limit / 2); i--) {
+    if (/[,;:—–]$/.test(cut[i])) { cut = cut.slice(0, i + 1); break; }
+  }
+  return cut.join(" ").replace(/[,;:—–]+$/, "") + "…";
+}
+
+function summarize(text, limit = LIMIT) {
+  const total = countWords(text);
+  if (!total) return "";
+  if (total <= limit) return text.replace(/\s+/g, " ").trim();
+
+  const sentences = splitSentences(text);
+  const freq = new Map();
+  sentences.forEach(s => tokens(s).forEach(t => freq.set(t, (freq.get(t) || 0) + 1)));
+  const maxF = Math.max(1, ...freq.values());
+
+  const scored = sentences.map((raw, i) => {
+    const toks = tokens(raw);
+    const short = compress(raw);
+    let score = toks.reduce((sum, t) => sum + freq.get(t) / maxF, 0) / Math.sqrt(Math.max(toks.length, 1));
+    if (i === 0) score *= 1.3;                       // lead sentences tend to carry the thesis
+    else if (i === 1) score *= 1.1;
+    if (countWords(raw) < 6) score *= 0.5;           // fragments rarely summarize well
+    return { i, score, text: short, words: countWords(short) };
+  });
+
+  // Greedy pick by score, skipping near-duplicates, within the word budget.
+  const chosen = [];
+  let used = 0;
+  const seen = [];
+  for (const s of [...scored].sort((a, b) => b.score - a.score)) {
+    if (!s.words || used + s.words > limit) continue;
+    const set = new Set(tokens(s.text));
+    const dup = seen.some(o => {
+      let shared = 0; set.forEach(t => o.has(t) && shared++);
+      return shared / Math.max(1, Math.min(set.size, o.size)) > 0.7;
+    });
+    if (dup) continue;
+    chosen.push(s); seen.push(set); used += s.words;
+  }
+
+  if (!chosen.length) {
+    const best = [...scored].sort((a, b) => b.score - a.score)[0];
+    return trimToLimit(best.text, limit);
+  }
+  return chosen.sort((a, b) => a.i - b.i).map(s => s.text).join(" ");
+}
+
+// ---- UI ----
+const $ = id => document.getElementById(id);
+const input = $("input"), output = $("output");
+
+function updateInputCount() {
+  const n = countWords(input.value);
+  $("inCount").innerHTML = `<strong>${n}</strong> word${n === 1 ? "" : "s"}`;
+  $("goBtn").disabled = n === 0;
+}
+
+function run() {
+  const src = input.value;
+  if (!countWords(src)) return;
+  const summary = summarize(src);
+  const n = countWords(summary);
+  output.textContent = summary;
+  output.classList.remove("empty");
+  $("outCount").innerHTML = `<strong>${n}</strong> / ${LIMIT} words`;
+  $("meterBar").style.width = Math.min(100, (n / LIMIT) * 100) + "%";
+  const inN = countWords(src);
+  $("ratio").textContent = inN > n ? `${Math.round((1 - n / inN) * 100)}% shorter` : "Already 50 or less";
+  $("copyBtn").disabled = false;
+}
+
+input.addEventListener("input", updateInputCount);
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); run(); }
+});
+$("goBtn").addEventListener("click", run);
+$("clearBtn").addEventListener("click", () => {
+  input.value = ""; updateInputCount();
+  output.textContent = "Your summary will appear here."; output.classList.add("empty");
+  $("outCount").innerHTML = `<strong>0</strong> / ${LIMIT} words`;
+  $("meterBar").style.width = "0"; $("ratio").textContent = ""; $("copyBtn").disabled = true;
+  input.focus();
+});
+$("copyBtn").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(output.textContent); $("copyBtn").textContent = "Copied"; }
+  catch { $("copyBtn").textContent = "Copy failed"; }
+  setTimeout(() => $("copyBtn").textContent = "Copy", 1400);
+});
+$("sampleBtn").addEventListener("click", () => {
+  input.value = "Urban beekeeping has grown rapidly over the past decade as city residents look for ways to support declining pollinator populations. " +
+    "Rooftop hives now appear on restaurants, office towers, and apartment buildings in cities such as New York, London, and Paris. " +
+    "Supporters argue that city bees benefit from a wide variety of flowering plants in parks and gardens, and that urban honey can be surprisingly diverse in flavor. " +
+    "However, some ecologists warn that adding too many honeybee colonies may harm wild bees, which compete with honeybees for the same limited nectar and pollen. " +
+    "Studies in several European cities have found that wild bee numbers fall where hive density is highest. " +
+    "As a result, researchers are urging cities to focus on planting more flowers and creating nesting habitat rather than simply adding hives. " +
+    "Many beekeepers say they welcome the guidance and want their hobby to help, not hurt, local ecosystems.";
+  updateInputCount(); run();
+});
+</script>
+</body>
+</html>
