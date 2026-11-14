@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Done In 60 Seconds</title>
+<style>
+  :root {
+    --bg: #f6f4ef; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66;
+    --line: #e2dfd7; --accent: #d9480f; --accent-ink: #ffffff; --ok: #2b8a3e; --warn: #c92a2a;
+    --chip: #f1ede4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614; --panel: #1f1f1c; --ink: #ecebe6; --muted: #9a9890;
+      --line: #33322e; --accent: #ff7a3d; --accent-ink: #161614; --ok: #69db7c; --warn: #ff8787;
+      --chip: #2a2a26;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header { padding: 28px 24px 8px; max-width: 1200px; width: 100%; margin: 0 auto; }
+  h1 { margin: 0; font-size: 2rem; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main {
+    flex: 1; display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px;
+    padding: 16px 24px 24px; max-width: 1200px; width: 100%; margin: 0 auto;
+  }
+  .pane {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    display: flex; flex-direction: column; min-height: 460px; overflow: hidden;
+  }
+  .pane-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+  }
+  textarea {
+    flex: 1; border: 0; resize: none; padding: 16px; background: transparent;
+    color: var(--ink); font: inherit; outline: none; min-height: 200px;
+  }
+  .controls {
+    border-top: 1px solid var(--line); padding: 12px 16px; display: grid; gap: 12px;
+  }
+  .controls label.field { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: .9rem; }
+  .controls input[type=number] {
+    width: 90px; font: inherit; padding: 6px 8px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  }
+  .sub { font-size: .75rem; color: var(--muted); }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg label { flex: 1; text-align: center; cursor: pointer; padding: 8px 6px; font-size: .85rem; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label:has(input:checked) { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+  #output { flex: 1; padding: 16px; font-size: 1.1rem; line-height: 1.6; }
+  #output.empty { color: var(--muted); font-size: 1rem; font-style: italic; }
+  #output p { margin: 0 0 14px; }
+  .tag {
+    display: inline-block; font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+    background: var(--chip); color: var(--muted); border-radius: 6px; padding: 1px 7px; margin-right: 6px;
+    vertical-align: 2px; user-select: none;
+  }
+  .missing { color: var(--muted); font-style: italic; font-size: .95rem; }
+  .middle { display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--ink); padding: 8px 14px;
+  }
+  button.primary {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+    font-weight: 600; padding: 14px 20px;
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .link { border: 0; background: none; color: var(--muted); padding: 0; font-size: .8rem;
+          text-transform: uppercase; letter-spacing: .08em; }
+  .link:hover { color: var(--ink); }
+  .meter { height: 4px; background: var(--line); }
+  .meter div { height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+  .foot { padding: 10px 16px; border-top: 1px solid var(--line); display: flex;
+          justify-content: space-between; align-items: center; font-size: .85rem; color: var(--muted); gap: 8px; }
+  .count strong { color: var(--ink); }
+  .over strong { color: var(--warn); }
+  .hint { font-size: .75rem; color: var(--muted); text-align: center; }
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; padding: 12px 16px 16px; }
+    header { padding: 20px 16px 4px; }
+    .pane { min-height: 260px; }
+    .middle { flex-direction: row; justify-content: stretch; }
+    .middle .primary { flex: 1; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Done In <span>60</span> Seconds</h1>
+  <p>Paste your answer, set your speaking pace, pick a structure. Get a version you can say out loud in a minute or less.</p>
+</header>
+
+<main>
+  <section class="pane">
+    <div class="pane-head">
+      <span>Your answer</span>
+      <span>
+        <button class="link" id="sampleBtn">Sample</button> ·
+        <button class="link" id="clearBtn">Clear</button>
+      </span>
+    </div>
+    <textarea id="input" placeholder="Paste or type the answer you want to deliver…"></textarea>
+    <div class="controls">
+      <label class="field">
+        <span>Speaking pace<br><span class="sub">words per second (2.5 ≈ 150 words/min)</span></span>
+        <input type="number" id="wps" min="0.5" max="6" step="0.1" value="2.5">
+      </label>
+      <div>
+        <div class="sub" style="margin-bottom:6px">Answer method</div>
+        <div class="seg" role="radiogroup" aria-label="Answer method">
+          <label><input type="radio" name="method" value="STAR" checked>STAR</label>
+          <label><input type="radio" name="method" value="PSI">Problem · Solution · Impact</label>
+        </div>
+      </div>
+    </div>
+    <div class="foot">
+      <span class="count" id="inCount"><strong>0</strong> words</span>
+      <span id="inTime"></span>
+    </div>
+  </section>
+
+  <div class="middle">
+    <button class="primary" id="goBtn" disabled>Reform →</button>
+    <div class="hint">Ctrl / ⌘ + Enter</div>
+  </div>
+
+  <section class="pane">
+    <div class="pane-head">
+      <span>60-second version</span>
+      <button class="link" id="copyBtn" disabled>Copy</button>
+    </div>
+    <div class="meter"><div id="meterBar"></div></div>
+    <div id="output" class="empty">Your reformed answer will appear here.</div>
+    <div class="foot">
+      <span class="count" id="outCount"><strong>0</strong> words</span>
+      <span id="outTime"></span>
+    </div>
+  </section>
+</main>
+
+<script>
+// ---- Core logic (no network calls; everything runs in the browser) ----
+const SECONDS = 60;
+
+// Each method: ordered sections, share of the word budget, cue phrases, and where
+// in a typical answer that section tends to appear (0 = start, 1 = end).
+const METHODS = {
+  STAR: [
+    { key: "Situation", share: 0.15, pos: 0.0,
+      cues: /\b(when i was|at the time|previous(ly)?|my (last|former|previous) (job|role|company|team)|i worked (at|as|on)|i was working|our (team|company|client|department)|background|context|in (19|20)\d\d|last (year|summer|semester)|during my)\b/i },
+    { key: "Task", share: 0.15, pos: 0.3,
+      cues: /\b(my (goal|job|task|role|responsibility|objective) was|i was (responsible|tasked|asked|assigned|charged)|responsible for|needed to|had to|was expected to|the (goal|task|objective|challenge) was|deadline|i wanted to)\b/i },
+    { key: "Action", share: 0.45, pos: 0.65,
+      cues: /\b(so i|i (then|first|decided|led|built|created|organi[sz]ed|implemented|developed|designed|analy[sz]ed|proposed|wrote|launched|set up|reached out|met with|started|worked with|introduced|coordinated|negotiated|trained|redesigned|automated)|first,|next,|then i|after that)\b/i },
+    { key: "Result", share: 0.25, pos: 1.0,
+      cues: /\b(as a result|result(ed|s)?|outcome|in the end|ultimately|eventually|increas|decreas|reduc|improv|sav(ed|ing)|grew|achiev|won|exceed|cut|boost|learned|feedback|promot|recogni[sz]ed)|\d+\s?(%|percent|x\b)|\$\d/i },
+  ],
+  PSI: [
+    { key: "Problem", share: 0.3, pos: 0.0,
+      cues: /\b(problem|issue|challenge|struggl|fail(ing|ed)?|broken|pain|slow|costly|expensive|declin|lack(ed|ing)?|couldn'?t|wasn'?t|didn'?t|risk|complain|bottleneck|frustrat|behind schedule|losing|churn|error|inefficien)/i },
+    { key: "Solution", share: 0.4, pos: 0.5,
+      cues: /\b(solution|so (i|we)|i (built|created|designed|implemented|proposed|introduced|decided|led|developed|automated|redesigned|set up)|we (built|created|designed|implemented|introduced|decided|developed|automated|redesigned)|approach|fix(ed)?|instead|to solve|to address|plan was)\b/i },
+    { key: "Impact", share: 0.3, pos: 1.0,
+      cues: /\b(as a result|result(ed|s)?|impact|outcome|in the end|ultimately|increas|decreas|reduc|improv|sav(ed|ing)|grew|achiev|exceed|cut|boost|now|today|since then)|\d+\s?(%|percent|x\b)|\$\d/i },
+  ],
+};
+
+const STOP = new Set(("a about above after again against all also am an and any are as at be because been " +
+  "before being below between both but by can could did do does doing down during each few for from further " +
+  "had has have having he her here hers herself him himself his how i if in into is it its itself just me more " +
+  "most my myself no nor not now of off on once only or other our ours ourselves out over own same she should " +
+  "so some such than that the their theirs them themselves then there these they this those through to too " +
+  "under until up very was we were what when where which while who whom why will with would you your yours " +
+  "yourself yourselves one two may might must shall many much said says say like get got make made us").split(" "));
+
+// Spoken filler that eats seconds without adding meaning.
+const FILLER = [
+  /\b(it is (important|worth) (to note|noting) that)\s*/gi,
+  /\b(it should be noted that)\s*/gi,
+  /\b(to be honest|honestly|you know|i mean|kind of|sort of|i think that|i guess|i feel like|basically|essentially|literally|actually|really|very|quite|just)\b,?\s*/gi,
+  /^(so|well|um|uh|like|and|but|however|moreover|furthermore|additionally|in addition|indeed|in fact|of course|overall|anyway),\s*/i,
+  /\b(um+|uh+)\b,?\s*/gi,
+];
+
+const countWords = s => (s.trim().match(/\S+/g) || []).length;
+const secondsFor = (words, wps) => words / wps;
+
+function splitSentences(text) {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (!flat) return [];
+  const parts = flat.match(/[^.!?]+(?:[.!?]+["'”’)\]]*|$)/g) || [flat];
+  const out = [];
+  for (const p of parts.map(s => s.trim()).filter(Boolean)) {
+    const prev = out[out.length - 1];
+    if (prev && /\b(Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc|e\.g|i\.e|U\.S|[A-Z])\.$/.test(prev)) {
+      out[out.length - 1] = prev + " " + p;
+    } else out.push(p);
+  }
+  return out;
+}
+
+function tokens(s) {
+  return (s.toLowerCase().match(/[a-z0-9][a-z0-9'’-]*/g) || [])
+    .map(w => w.replace(/['’]s$/, ""))
+    .filter(w => w.length > 2 && !STOP.has(w));
+}
+
+function compress(sentence) {
+  let s = sentence.replace(/\s*\([^)]*\)/g, "").replace(/\s*\[[^\]]*\]/g, "");
+  for (const re of FILLER) s = s.replace(re, "");
+  s = s.replace(/\s+([,.;:!?])/g, "$1").replace(/^[,;:\s]+/, "").replace(/\s{2,}/g, " ").trim();
+  if (s && !/[.!?]["'”’)\]]*$/.test(s)) s += ".";
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
+// Shorten a sentence by keeping whole leading clauses (split at , ; : —) that fit the limit.
+// Returns null if even the first clause is too long, so we never speak a broken fragment.
+function trimToClauses(s, limit) {
+  if (countWords(s) <= limit) return s;
+  const clauses = s.split(/(?<=[,;:—–])\s+/);
+  let out = "";
+  for (const c of clauses) {
+    const next = out ? out + " " + c : c;
+    if (countWords(next) > limit) break;
+    out = next;
+  }
+  if (countWords(out) < 5) return null; // e.g. just "As a result," is not a thought
+  return out.replace(/[,;:—–]+$/, "").replace(/\s+(and|but|so|or|which|that)$/i, "") + ".";
+}
+
+// Last resort for a single run-on with no clause breaks: hard cut at the limit.
+function hardTrim(s, limit) {
+  return s.split(/\s+/).slice(0, limit).join(" ").replace(/[,;:—–.]+$/, "") + ".";
+}
+
+// Assign each sentence to the section it most likely belongs to:
+// explicit cue phrases count most, position in the answer breaks ties.
+function classify(sentences, sections) {
+  const n = sentences.length;
+  return sentences.map((s, i) => {
+    const rel = n === 1 ? 0.5 : i / (n - 1);
+    let best = 0, bestScore = -Infinity;
+    sections.forEach((sec, k) => {
+      const cue = sec.cues.test(s) ? 2 : 0;
+      const prox = 1 - Math.abs(rel - sec.pos);
+      const score = cue + prox;
+      if (score > bestScore) { bestScore = score; best = k; }
+    });
+    return best;
+  });
+}
+
+// Returns { sections: [{ key, sentences: [text] }], words, budget }.
+function reform(text, wps, methodKey) {
+  const sections = METHODS[methodKey];
+  const budget = Math.max(1, Math.floor(wps * SECONDS));
+  const raw = splitSentences(text);
+  if (!raw.length) return { sections: sections.map(s => ({ key: s.key, sentences: [] })), words: 0, budget };
+
+  // Score sentences by how many of the answer's key ideas they carry.
+  const freq = new Map();
+  raw.forEach(s => tokens(s).forEach(t => freq.set(t, (freq.get(t) || 0) + 1)));
+  const maxF = Math.max(1, ...freq.values());
+  const owner = classify(raw, sections);
+
+  const items = raw.map((r, i) => {
+    const toks = tokens(r);
+    const text = compress(r);
+    let score = toks.reduce((sum, t) => sum + freq.get(t) / maxF, 0) / Math.sqrt(Math.max(toks.length, 1));
+    if (sections[owner[i]].cues.test(r)) score *= 1.4;     // clearly on-structure
+    if (/\d/.test(r) && owner[i] === sections.length - 1) score *= 1.3; // numbers make results land
+    if (countWords(r) < 5) score *= 0.5;
+    return { i, sec: owner[i], text, words: countWords(text), score };
+  }).filter(it => it.words > 0);
+
+  const chosen = new Set();
+  let used = 0;
+  const take = it => { chosen.add(it); used += it.words; };
+
+  // Split the budget only among sections the text actually covers.
+  const present = sections.map((_, k) => items.some(it => it.sec === k));
+  const shareSum = sections.reduce((a, sec, k) => a + (present[k] ? sec.share : 0), 0) || 1;
+  const capOf = k => Math.floor(budget * sections[k].share / shareSum);
+
+  // Pass 1: every section gets one sentence that fits its share of the budget, so the
+  // structure stays complete even at slow paces. Prefer the best sentence that fits;
+  // otherwise shorten one to its leading clauses.
+  sections.forEach((sec, k) => {
+    const own = items.filter(it => it.sec === k).sort((a, b) => b.score - a.score);
+    if (!own.length) return;
+    const cap = capOf(k);
+    const fits = own.find(it => it.words <= cap);
+    if (fits) { take(fits); return; }
+    for (const it of own) {
+      const t = trimToClauses(it.text, cap);
+      if (t) {
+        const trimmed = { ...it, text: t, words: countWords(t) };
+        items[items.indexOf(it)] = trimmed;
+        take(trimmed);
+        return;
+      }
+    }
+  });
+
+  // Pass 2: fill each section up to its share of the budget.
+  sections.forEach((sec, k) => {
+    let secUsed = [...chosen].filter(it => it.sec === k).reduce((a, it) => a + it.words, 0);
+    const cap = capOf(k);
+    for (const it of items.filter(it => it.sec === k && !chosen.has(it)).sort((a, b) => b.score - a.score)) {
+      if (secUsed + it.words <= cap && used + it.words <= budget) { take(it); secUsed += it.words; }
+    }
+  });
+
+  // Pass 3: spend leftover time on the best remaining sentences anywhere.
+  for (const it of items.filter(it => !chosen.has(it)).sort((a, b) => b.score - a.score)) {
+    if (used + it.words <= budget) take(it);
+  }
+
+  // Nothing fit (one giant run-on sentence): cut the strongest one to the budget.
+  if (!chosen.size) {
+    const best = [...items].sort((a, b) => b.score - a.score)[0];
+    const t = trimToClauses(best.text, budget) || hardTrim(best.text, budget);
+    take({ ...best, text: t, words: countWords(t) });
+  }
+
+  const out = sections.map((sec, k) => ({
+    key: sec.key,
+    inSource: present[k],
+    sentences: [...chosen].filter(it => it.sec === k).sort((a, b) => a.i - b.i).map(it => it.text),
+  }));
+  return { sections: out, words: used, budget };
+}
+
+// ---- UI ----
+const $ = id => document.getElementById(id);
+const input = $("input"), output = $("output"), wpsInput = $("wps");
+const method = () => document.querySelector('input[name="method"]:checked').value;
+const fmtSec = s => `${Math.round(s)} sec`;
+
+function getWps() {
+  const v = parseFloat(wpsInput.value);
+  return isFinite(v) && v >= 0.5 && v <= 6 ? v : null;
+}
+
+function updateInputCount() {
+  const n = countWords(input.value), wps = getWps();
+  $("inCount").innerHTML = `<strong>${n}</strong> word${n === 1 ? "" : "s"}`;
+  const t = wps ? secondsFor(n, wps) : null;
+  $("inTime").textContent = n && t ? `≈ ${fmtSec(t)} spoken` : "";
+  $("inCount").classList.toggle("over", !!(t && t > SECONDS));
+  $("goBtn").disabled = n === 0 || !wps;
+  wpsInput.setCustomValidity(wps ? "" : "Enter a pace between 0.5 and 6 words per second.");
+}
+
+let plainText = "";
+
+function run() {
+  const src = input.value, wps = getWps();
+  if (!countWords(src)) return;
+  if (!wps) { wpsInput.reportValidity(); return; }
+  const res = reform(src, wps, method());
+
+  output.innerHTML = "";
+  output.classList.remove("empty");
+  const lines = [];
+  for (const sec of res.sections) {
+    const p = document.createElement("p");
+    const tag = document.createElement("span");
+    tag.className = "tag"; tag.textContent = sec.key;
+    p.appendChild(tag);
+    if (sec.sentences.length) {
+      const body = sec.sentences.join(" ");
+      p.appendChild(document.createTextNode(body));
+      lines.push(body);
+    } else {
+      const m = document.createElement("span");
+      m.className = "missing";
+      m.textContent = sec.inSource
+        ? `${sec.key} cut to fit 60 seconds. Try a faster pace or a shorter sentence for it.`
+        : `Nothing in your text reads as the ${sec.key.toLowerCase()}. Consider adding a sentence for it.`;
+      p.appendChild(m);
+    }
+    output.appendChild(p);
+  }
+  plainText = lines.join("\n\n");
+
+  const secs = secondsFor(res.words, wps);
+  $("outCount").innerHTML = `<strong>${res.words}</strong> / ${res.budget} words`;
+  $("outTime").textContent = `≈ ${fmtSec(secs)} at ${wps} words/sec`;
+  $("meterBar").style.width = Math.min(100, (secs / SECONDS) * 100) + "%";
+  $("copyBtn").disabled = !plainText;
+}
+
+input.addEventListener("input", updateInputCount);
+wpsInput.addEventListener("input", updateInputCount);
+document.querySelectorAll('input[name="method"]').forEach(r =>
+  r.addEventListener("change", () => { if (!output.classList.contains("empty")) run(); }));
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); run(); }
+});
+$("goBtn").addEventListener("click", run);
+$("clearBtn").addEventListener("click", () => {
+  input.value = ""; updateInputCount(); plainText = "";
+  output.textContent = "Your reformed answer will appear here."; output.classList.add("empty");
+  $("outCount").innerHTML = `<strong>0</strong> words`; $("outTime").textContent = "";
+  $("meterBar").style.width = "0"; $("copyBtn").disabled = true;
+  input.focus();
+});
+$("copyBtn").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(plainText); $("copyBtn").textContent = "Copied"; }
+  catch { $("copyBtn").textContent = "Copy failed"; }
+  setTimeout(() => $("copyBtn").textContent = "Copy", 1400);
+});
+$("sampleBtn").addEventListener("click", () => {
+  input.value = "So, honestly, at my last job I was working as an operations analyst at a mid-sized logistics company, and our team handled about 400 customer shipments a day. " +
+    "The problem was that our weekly delivery reports were built by hand in spreadsheets, and they were basically always late and full of errors. " +
+    "Managers kept complaining that they couldn't trust the numbers, and it was really frustrating for everyone involved. " +
+    "My manager asked me to find a way to get accurate reports out by Monday morning every week, and I had to do it without any extra budget. " +
+    "I first interviewed the five managers who used the report to find out which numbers they actually relied on. " +
+    "Then I built an automated dashboard that pulled data directly from our shipping system every night, so nobody had to copy and paste anymore. " +
+    "I also wrote a short guide and ran two training sessions so the team knew how to read it. " +
+    "To be honest, there were a few bugs at the start, and I spent a couple of late nights fixing the data connections. " +
+    "As a result, reports went out on time every single week for the rest of the year, and errors dropped by about 90 percent. " +
+    "We saved roughly six hours of manual work per week, and my manager later asked me to roll the same approach out to two other teams.";
+  updateInputCount(); run();
+});
+
+updateInputCount();
+</script>
+</body>
+</html>
