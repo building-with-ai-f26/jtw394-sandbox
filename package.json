@@ -1,0 +1,11 @@
+{
+  "name": "done-in-60-seconds",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Turns an interview question and a pasted resume into a STAR or Problem-Solution-Impact answer you can say in 60 seconds.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env app/server.js",
+    "test": "node --test tests/"
+  }
+}

@@ -3,15 +3,35 @@
 > Give this file to your coding agent and check that it is using these instructions. Keep the stack, commands, and ground rules current.
 
 ## 1. Project Overview
-- **What this repo builds:** [1–2 sentence summary]
-- **Primary user & core workflow:** [See the living PRD in `docs/index.html`]
-- **Tech stack:** [e.g., Python 3.12 / FastAPI / Next.js / SQLite / OpenRouter API]
+- **What this repo builds:** *Done In 60 Seconds*: the user enters an interview question, pastes their resume, sets a speaking pace, and picks STAR or Problem·Solution·Impact. An AI model writes an answer drawn from the resume that can be said aloud in 60 seconds.
+- **Primary user & core workflow:** See the living PRD in `docs/index.html`.
+- **Tech stack:** Node.js 22+ (built-in `http` and `fetch`, **no npm dependencies**) / plain HTML+JS page / OpenRouter API (default model `deepseek/deepseek-v4.1-flash`).
+
+### Project structure
+| Path | What it is |
+| --- | --- |
+| `app/server.js` | Local server on `127.0.0.1`. Serves the page, handles `POST /api/reform`, calls OpenRouter with the key from `.env`, and enforces the daily spend cap. |
+| `app/reform.js` | Pure logic: input checks, word budget (pace × 60), prompt building, and parsing/checking the model's JSON reply. No network. |
+| `app/public/index.html` | The UI. Talks only to `/api/reform` and never sees the API key. |
+| `tests/reform.test.js` | Deterministic `node:test` tests for `app/reform.js`. |
+| `docs/` | Public GitHub Pages Product Page and the Build 1 browser-only prototypes. **Never put the app or keys here.** |
+| `.env` (gitignored) | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `DAILY_BUDGET_USD`, `PORT`. See `.env.example`. |
+| `.spend.json` (gitignored) | Today's AI spend and run count, written by the server. |
+
+### Data flow (one user action)
+Browser → `POST /api/reform` with `{question, resume, wps, method}` → server checks the input and the daily budget → OpenRouter chat completion (JSON mode, `max_tokens` 900, 30 s timeout) → server parses the reply and **counts the words itself**. If the answer is over budget or unreadable, the server retries once → the browser gets the sections, gaps, word count, and cost.
+
+### AI & key rules for this project
+- The API key is read only in `app/server.js` from `process.env`. Never send it to the browser, log it, or put it in `docs/`.
+- The server binds to `127.0.0.1` only. Keep the input size limits, `max_tokens`, and `DAILY_BUDGET_USD` guard in place.
+- The resume is untrusted user data: keep it inside `<resume>` tags, and render model output with `textContent`, never `innerHTML`.
+- Also set a credit limit on the OpenRouter key itself (openrouter.ai → Keys). The in-app cap only covers this app.
 
 ## 2. Commands
-- **Install dependencies:** `[e.g., npm install / uv sync]`
-- **Run locally:** `[e.g., npm run dev]`
-- **Run deterministic tests:** `[e.g., pytest / npm test]`
-- **Run model evals:** `[e.g., python tests/eval.py]`
+- **Install dependencies:** none (`node -v` must be 22+). First run: `cp .env.example .env`, then add your OpenRouter key.
+- **Run locally:** `npm start` → open http://127.0.0.1:3000
+- **Run deterministic tests:** `npm test`
+- **Run model evals:** not yet (Build 4)
 
 ## 3. Non-Negotiable Engineering Rules
 1. **Plan before coding:** Before touching multiple files, propose a brief plan and wait for approval.
