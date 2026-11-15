@@ -35,16 +35,17 @@ Create your PostHog account in Week 1. Install it on the Product Page and local 
 
 ## Local setup
 
-Requires Node.js 22 or newer. There are no npm packages to install.
+Requires Node.js 22 or newer and an Anthropic API key (console.anthropic.com).
 
 ```bash
 git clone https://github.com/building-with-ai-f26/jtw394-sandbox.git
 cd jtw394-sandbox
-cp .env.example .env      # then paste your OpenRouter key into .env
+npm install               # installs the Anthropic SDK
+cp .env.example .env      # then paste your Anthropic key into .env
 npm start                 # open http://127.0.0.1:3000
 npm test                  # deterministic tests, no API calls
 ```
 
-The app stops making AI calls once `DAILY_BUDGET_USD` (default $1.00) has been spent today. Also set a credit limit on the key in OpenRouter. See `AGENTS.md` for the structure and data flow.
+The app stops making AI calls once `DAILY_BUDGET_USD` (default $1.00) has been spent today. Also set a monthly spend limit in the Anthropic Console. See `AGENTS.md` for the structure and data flow.
 
 If your app needs API keys, use a local environment file such as `.env`. Keep private keys out of source code, browser code, screenshots, and commits. The template ignores `.env`; `.env.example` contains placeholders only.

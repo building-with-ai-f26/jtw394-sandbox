@@ -2,7 +2,7 @@
 // Run with: npm test
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { countWords, budgetFor, validateInput, buildMessages, parseReply } = require("../app/reform");
+const { countWords, budgetFor, validateInput, buildPrompt, replySchema, parseReply, costUsd } = require("../app/reform");
 
 const good = { question: "Tell me about a time you led a team.", resume: "Led a team of 4 at Acme.", wps: 2.5, method: "STAR" };
 
@@ -33,12 +33,26 @@ test("validateInput rejects missing, oversized, or out-of-range input", () => {
   assert.equal(validateInput({ ...good, method: "toString" }).ok, false); // not a real method
 });
 
-test("buildMessages states the word budget, the sections, and fences the resume", () => {
-  const [system, user] = buildMessages(good, 150);
-  assert.match(system.content, /AT MOST 150 words/);
-  assert.match(system.content, /Situation, Task, Action, Result/);
-  assert.match(user.content, /<resume>\nLed a team of 4 at Acme\.\n<\/resume>/);
-  assert.equal(buildMessages(good, 150, "shorter please").length, 3);
+test("buildPrompt states the word budget, the sections, and fences the resume", () => {
+  const { system, messages } = buildPrompt(good, 150);
+  assert.match(system, /AT MOST 150 words/);
+  assert.match(system, /Situation, Task, Action, Result/);
+  assert.equal(messages[0].role, "user");
+  assert.match(messages[0].content, /<resume>\nLed a team of 4 at Acme\.\n<\/resume>/);
+  assert.equal(buildPrompt(good, 150, "shorter please").messages.length, 2);
+});
+
+test("replySchema limits section labels to the chosen method", () => {
+  const s = replySchema("PSI");
+  assert.deepEqual(s.properties.sections.items.properties.label.enum, ["Problem", "Solution", "Impact"]);
+  assert.equal(s.additionalProperties, false);
+});
+
+test("costUsd prices tokens per model and errs high for unknown models", () => {
+  const usage = { input_tokens: 1_000_000, output_tokens: 1_000_000 };
+  assert.equal(costUsd("claude-haiku-5-5", usage), 0.6);
+  assert.equal(costUsd("some-future-model", usage), 24); // priced like Opus
+  assert.equal(costUsd("claude-haiku-5-5", undefined), 0);
 });
 
 test("parseReply orders sections, counts words itself, and fills missing sections", () => {

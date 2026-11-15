@@ -41,9 +41,30 @@ function validateInput(body) {
   return { ok: true, value: { question, resume, wps, method } };
 }
 
-// Builds the chat messages sent to the model. The resume is wrapped in tags and labelled as data,
-// so instructions hidden inside a pasted resume are treated as text, not commands.
-function buildMessages({ question, resume, method }, budget, feedback) {
+// JSON Schema the model's reply must follow (sent as Claude's structured-output format).
+function replySchema(method) {
+  return {
+    type: "object",
+    properties: {
+      sections: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: { label: { type: "string", enum: METHODS[method] }, text: { type: "string" } },
+          required: ["label", "text"],
+          additionalProperties: false,
+        },
+      },
+      gaps: { type: "array", items: { type: "string" } },
+    },
+    required: ["sections", "gaps"],
+    additionalProperties: false,
+  };
+}
+
+// Builds the system prompt and messages sent to the model. The resume is wrapped in tags and labelled
+// as data, so instructions hidden inside a pasted resume are treated as text, not commands.
+function buildPrompt({ question, resume, method }, budget, feedback) {
   const labels = METHODS[method];
   const system = [
     "You are an interview coach. Write a spoken answer to an interview question, in the first person,",
@@ -62,9 +83,9 @@ function buildMessages({ question, resume, method }, budget, feedback) {
   ].join("\n");
 
   const user = `Interview question: ${question}\n\n<resume>\n${resume}\n</resume>`;
-  const messages = [{ role: "system", content: system }, { role: "user", content: user }];
+  const messages = [{ role: "user", content: user }];
   if (feedback) messages.push({ role: "user", content: feedback });
-  return messages;
+  return { system, messages };
 }
 
 // Parses and checks the model's reply. Returns { ok: true, sections, gaps, words } or { ok: false, error }.
@@ -92,4 +113,16 @@ function parseReply(content, method) {
   return { ok: true, sections, gaps, words };
 }
 
-module.exports = { SECONDS, METHODS, LIMITS, countWords, budgetFor, validateInput, buildMessages, parseReply };
+// Dollar cost of one call from its token counts (Anthropic reports tokens, not dollars).
+// Prices are USD per million tokens; an unknown model is priced like Opus so the daily cap errs safe.
+const PRICES = {
+  "claude-haiku-5-5": { input: 0.10, output: 0.50 },
+  "claude-sonnet-5-5": { input: 2.00, output: 10.00 },
+  "claude-opus-5-5": { input: 4.00, output: 20.00 },
+};
+function costUsd(model, usage) {
+  const p = PRICES[model] || PRICES["claude-opus-5-5"];
+  return ((usage?.input_tokens || 0) * p.input + (usage?.output_tokens || 0) * p.output) / 1e6;
+}
+
+module.exports = { SECONDS, METHODS, LIMITS, PRICES, countWords, budgetFor, validateInput, replySchema, buildPrompt, parseReply, costUsd };

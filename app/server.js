@@ -1,30 +1,32 @@
 // Local server for "Done In 60 Seconds".
 // - Serves the page (app/public/index.html) at http://127.0.0.1:PORT
-// - POST /api/reform: checks input, calls OpenRouter with the key from .env, returns the structured answer
+// - POST /api/reform: checks input, calls Claude with the key from .env, returns the structured answer
 // The API key only ever lives here on the server; it is never sent to the browser.
 // Run with: npm start   (which is: node --env-file-if-exists=.env app/server.js)
 
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
-const { validateInput, budgetFor, buildMessages, parseReply } = require("./reform");
+const Anthropic = require("@anthropic-ai/sdk").default;
+const { validateInput, budgetFor, buildPrompt, replySchema, parseReply, costUsd } = require("./reform");
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = "127.0.0.1"; // only reachable from this computer
-const API_KEY = process.env.OPENROUTER_API_KEY || "";
-const MODEL = process.env.OPENROUTER_MODEL || "deepseek/deepseek-v4.1-flash";
+const API_KEY = process.env.ANTHROPIC_API_KEY || "";
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-5-5";
 const DAILY_BUDGET_USD = Number(process.env.DAILY_BUDGET_USD) || 1.0;
-const MAX_OUTPUT_TOKENS = 900; // caps cost per call; a 60-second answer is ~150-250 words
+// Caps cost per call. Covers the model's (brief, low-effort) thinking plus a ~150-250 word answer.
+const MAX_OUTPUT_TOKENS = 2000;
 const MAX_ATTEMPTS = 2; // one retry if the answer is over budget or unreadable
 const TIMEOUT_MS = 30000;
 const MAX_BODY_BYTES = 64 * 1024;
-// If OpenRouter doesn't report a cost, assume a deliberately high $2 per million tokens.
-const FALLBACK_USD_PER_TOKEN = 2 / 1e6;
 
 const PAGE = path.join(__dirname, "public", "index.html");
 const SPEND_FILE = path.join(__dirname, "..", ".spend.json"); // gitignored
 
-const keyLooksUnset = !API_KEY || API_KEY.includes("replace-with-your-key");
+const keyLooksUnset = !API_KEY.startsWith("sk-ant-");
+// maxRetries: 1 lets the SDK retry one transient failure (429/5xx/network) on its own.
+const client = keyLooksUnset ? null : new Anthropic({ apiKey: API_KEY, timeout: TIMEOUT_MS, maxRetries: 1 });
 
 // ---- Daily spend guard (persists across restarts in .spend.json) ----
 const today = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
@@ -46,45 +48,53 @@ function addSpend(usd) {
   return s;
 }
 
-// ---- OpenRouter call ----
-async function callModel(messages) {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${API_KEY}`,
-      "Content-Type": "application/json",
-      "X-Title": "Done In 60 Seconds (local)",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      max_tokens: MAX_OUTPUT_TOKENS,
-      temperature: 0.4,
-      response_format: { type: "json_object" },
-      usage: { include: true },
-    }),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
+// ---- Claude call ----
+// Turns SDK errors into messages a user can act on. Checked most specific first.
+function friendlyError(err) {
+  // Log only the error type and status, never the request (it carries the key) or the user's resume.
+  console.error(`Claude API error: ${err.constructor.name} ${err.status ?? ""}`);
+  let message = "The AI service had a problem. Try again in a moment.";
+  let status = 503;
+  if (err instanceof Anthropic.AuthenticationError) {
+    message = "Anthropic rejected the API key. Check ANTHROPIC_API_KEY in your .env file."; status = 502;
+  } else if (err instanceof Anthropic.PermissionDeniedError) {
+    message = "This API key isn't allowed to use that model. Check the key and ANTHROPIC_MODEL."; status = 502;
+  } else if (err instanceof Anthropic.RateLimitError) {
+    message = "Anthropic is rate limiting requests. Wait a moment and try again.";
+  } else if (err instanceof Anthropic.BadRequestError) {
+    // Low credit balance shows up as a 400; point the user at billing either way.
+    message = "Anthropic rejected the request. If your credit balance is empty, add credits at console.anthropic.com → Billing."; status = 502;
+  } else if (err instanceof Anthropic.APIConnectionTimeoutError) {
+    message = "The AI took too long to answer. Try again."; status = 504;
+  } else if (err instanceof Anthropic.APIConnectionError) {
+    message = "Can't reach Anthropic. Check your internet connection.";
+  }
+  return Object.assign(new Error(message), { status });
+}
 
-  if (!res.ok) {
-    // Log only the status code, never the request (it carries the key) or the user's resume.
-    console.error(`OpenRouter error: HTTP ${res.status}`);
-    const friendly = {
-      401: "OpenRouter rejected the API key. Check OPENROUTER_API_KEY in your .env file.",
-      402: "OpenRouter says this key is out of credits or over its spending limit.",
-      429: "OpenRouter is rate limiting requests. Wait a moment and try again.",
-    }[res.status] || `The AI service returned an error (HTTP ${res.status}). Try again.`;
-    const err = new Error(friendly);
-    err.status = res.status === 401 || res.status === 402 ? 502 : 503;
-    throw err;
+async function callModel(input, budget, feedback) {
+  const { system, messages } = buildPrompt(input, budget, feedback);
+  let response;
+  try {
+    response = await client.messages.create({
+      model: MODEL,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      system,
+      messages,
+      // Low effort keeps thinking (and cost) small; structured output guarantees the JSON shape.
+      output_config: { effort: "low", format: { type: "json_schema", schema: replySchema(input.method) } },
+    });
+  } catch (err) {
+    throw friendlyError(err);
   }
 
-  const data = await res.json();
-  const usage = data.usage || {};
-  const cost = typeof usage.cost === "number"
-    ? usage.cost
-    : ((usage.prompt_tokens || 0) + (usage.completion_tokens || 0)) * FALLBACK_USD_PER_TOKEN;
-  return { content: data.choices?.[0]?.message?.content ?? "", cost, usage };
+  const cost = costUsd(MODEL, response.usage);
+  if (response.stop_reason === "refusal") {
+    return { content: null, refused: true, cost };
+  }
+  // A response can start with thinking blocks, so read the answer from text blocks by type.
+  const content = response.content.filter(b => b.type === "text").map(b => b.text).join("");
+  return { content, refused: false, cost };
 }
 
 // ---- POST /api/reform ----
@@ -92,7 +102,7 @@ async function handleReform(body) {
   const checked = validateInput(body);
   if (!checked.ok) return [400, { error: checked.error }];
   if (keyLooksUnset) {
-    return [500, { error: "No API key configured. Copy .env.example to .env, add your OpenRouter key, and restart." }];
+    return [500, { error: "No API key configured. Add your Anthropic key (starts with sk-ant-) to .env and restart." }];
   }
 
   const spend = readSpend();
@@ -108,8 +118,12 @@ async function handleReform(body) {
   let lastError = "The AI reply could not be read.";
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const { content, cost } = await callModel(buildMessages(input, budget, feedback));
+    const { content, refused, cost } = await callModel(input, budget, feedback);
     totalCost += cost;
+    if (refused) {
+      lastError = "Claude declined to answer this one. Try rewording the question or removing unusual text from the resume.";
+      break; // a retry with the same input would likely be declined again
+    }
     const parsed = parseReply(content, input.method);
     if (!parsed.ok) {
       lastError = parsed.error;
@@ -183,5 +197,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`Done In 60 Seconds running at http://${HOST}:${PORT}`);
   console.log(`Model: ${MODEL} · Daily budget: $${DAILY_BUDGET_USD.toFixed(2)} · Spent today: $${readSpend().usd.toFixed(4)}`);
-  if (keyLooksUnset) console.warn("WARNING: OPENROUTER_API_KEY is not set. Copy .env.example to .env and add your key.");
+  if (keyLooksUnset) console.warn("WARNING: ANTHROPIC_API_KEY is not set in .env (it should start with sk-ant-).");
 });
