@@ -35,11 +35,17 @@ Create your PostHog account in Week 1. Install it on the Product Page and local 
 
 ## Local setup
 
-Clone **your own repository** and ask your coding agent to document the exact install and run commands here and in `AGENTS.md`.
+Requires Node.js 22 or newer and an Anthropic API key (console.anthropic.com).
 
 ```bash
-git clone https://github.com/building-with-ai-f26/<your-repo-name>.git
-cd <your-repo-name>
+git clone https://github.com/building-with-ai-f26/jtw394-sandbox.git
+cd jtw394-sandbox
+npm install               # installs the Anthropic SDK
+cp .env.example .env      # then paste your Anthropic key into .env
+npm start                 # open http://127.0.0.1:3000
+npm test                  # deterministic tests, no API calls
 ```
+
+The app stops making AI calls once `DAILY_BUDGET_USD` (default $1.00) has been spent today. Also set a monthly spend limit in the Anthropic Console. See `AGENTS.md` for the structure and data flow.
 
 If your app needs API keys, use a local environment file such as `.env`. Keep private keys out of source code, browser code, screenshots, and commits. The template ignores `.env`; `.env.example` contains placeholders only.

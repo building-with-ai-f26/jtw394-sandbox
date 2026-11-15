@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Done In 60 Seconds</title>
+<style>
+  :root {
+    --bg: #f6f4ef; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66;
+    --line: #e2dfd7; --accent: #d9480f; --accent-ink: #ffffff; --ok: #2b8a3e; --warn: #c92a2a;
+    --chip: #f1ede4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614; --panel: #1f1f1c; --ink: #ecebe6; --muted: #9a9890;
+      --line: #33322e; --accent: #ff7a3d; --accent-ink: #161614; --ok: #69db7c; --warn: #ff8787;
+      --chip: #2a2a26;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header { padding: 28px 24px 8px; max-width: 1200px; width: 100%; margin: 0 auto; }
+  h1 { margin: 0; font-size: 2rem; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main {
+    flex: 1; display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px;
+    padding: 16px 24px 24px; max-width: 1200px; width: 100%; margin: 0 auto;
+  }
+  .pane {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    display: flex; flex-direction: column; min-height: 520px; overflow: hidden;
+  }
+  .pane-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+  }
+  .field-label {
+    display: flex; justify-content: space-between; padding: 10px 16px 0;
+    font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+  }
+  textarea {
+    border: 0; resize: none; padding: 8px 16px 12px; background: transparent;
+    color: var(--ink); font: inherit; outline: none; width: 100%;
+  }
+  #question { min-height: 72px; border-bottom: 1px solid var(--line); }
+  #resume { flex: 1; min-height: 200px; font-size: .92rem; }
+  .controls { border-top: 1px solid var(--line); padding: 12px 16px; display: grid; gap: 12px; }
+  .controls label.field { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: .9rem; }
+  .controls input[type=number] {
+    width: 90px; font: inherit; padding: 6px 8px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  }
+  .sub { font-size: .75rem; color: var(--muted); }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg label { flex: 1; text-align: center; cursor: pointer; padding: 8px 6px; font-size: .85rem; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label:has(input:checked) { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+  #output { flex: 1; padding: 16px; font-size: 1.1rem; line-height: 1.6; }
+  #output.empty { color: var(--muted); font-size: 1rem; font-style: italic; }
+  #output.error { color: var(--warn); font-size: 1rem; font-style: normal; }
+  #output p { margin: 0 0 14px; }
+  .tag {
+    display: inline-block; font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+    background: var(--chip); color: var(--muted); border-radius: 6px; padding: 1px 7px; margin-right: 6px;
+    vertical-align: 2px; user-select: none;
+  }
+  .missing { color: var(--muted); font-style: italic; font-size: .95rem; }
+  .gaps { margin-top: 18px; padding: 10px 12px; border-radius: 10px; background: var(--chip); font-size: .9rem; }
+  .gaps strong { display: block; font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .gaps ul { margin: 6px 0 0; padding-left: 18px; }
+  .middle { display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--ink); padding: 8px 14px;
+  }
+  button.primary {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+    font-weight: 600; padding: 14px 20px;
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .link { border: 0; background: none; color: var(--muted); padding: 0; font-size: .8rem;
+          text-transform: uppercase; letter-spacing: .08em; }
+  .link:hover { color: var(--ink); }
+  .meter { height: 4px; background: var(--line); }
+  .meter div { height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+  .meter div.over { background: var(--warn); }
+  .foot { padding: 10px 16px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap;
+          justify-content: space-between; align-items: center; font-size: .85rem; color: var(--muted); gap: 4px 8px; }
+  .count strong { color: var(--ink); }
+  .over strong { color: var(--warn); }
+  .hint { font-size: .75rem; color: var(--muted); text-align: center; }
+  #cost { width: 100%; font-size: .75rem; }
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; padding: 12px 16px 16px; }
+    header { padding: 20px 16px 4px; }
+    .pane { min-height: 300px; }
+    .middle { flex-direction: row; justify-content: stretch; }
+    .middle .primary { flex: 1; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Done In <span>60</span> Seconds</h1>
+  <p>Enter an interview question, paste your resume, set your speaking pace, and pick a structure. Get an answer you can say out loud in a minute or less.</p>
+</header>
+
+<main>
+  <section class="pane">
+    <div class="pane-head">
+      <span>Your inputs</span>
+      <span>
+        <button class="link" id="sampleBtn">Sample</button> ·
+        <button class="link" id="clearBtn">Clear</button>
+      </span>
+    </div>
+    <label class="field-label" for="question"><span>Interview question</span><span id="qCount"></span></label>
+    <textarea id="question" maxlength="1000" placeholder="e.g. Tell me about a time you improved a process."></textarea>
+    <label class="field-label" for="resume"><span>Resume (pasted text)</span><span id="rCount"></span></label>
+    <textarea id="resume" maxlength="12000" placeholder="Paste the text of your resume…"></textarea>
+    <div class="controls">
+      <label class="field">
+        <span>Speaking pace<br><span class="sub">words per second (2.5 ≈ 150 words/min)</span></span>
+        <input type="number" id="wps" min="0.5" max="6" step="0.1" value="2.5">
+      </label>
+      <div>
+        <div class="sub" style="margin-bottom:6px">Answer method</div>
+        <div class="seg" role="radiogroup" aria-label="Answer method">
+          <label><input type="radio" name="method" value="STAR" checked>STAR</label>
+          <label><input type="radio" name="method" value="PSI">Problem · Solution · Impact</label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="middle">
+    <button class="primary" id="goBtn" disabled>Write answer →</button>
+    <div class="hint">Ctrl / ⌘ + Enter</div>
+  </div>
+
+  <section class="pane">
+    <div class="pane-head">
+      <span>60-second answer</span>
+      <button class="link" id="copyBtn" disabled>Copy</button>
+    </div>
+    <div class="meter"><div id="meterBar"></div></div>
+    <div id="output" class="empty" aria-live="polite">Your answer will appear here.</div>
+    <div class="foot">
+      <span class="count" id="outCount"><strong>0</strong> words</span>
+      <span id="outTime"></span>
+      <span id="cost"></span>
+    </div>
+  </section>
+</main>
+
+<script>
+// The browser never sees the API key. It sends the inputs to our own local server (/api/reform),
+// and the server makes the AI call. Analytics calls are no-ops until PostHog is added.
+const SECONDS = 60;
+const EMPTY_MSG = "Your answer will appear here.";
+const $ = id => document.getElementById(id);
+const question = $("question"), resume = $("resume"), wpsInput = $("wps"), output = $("output");
+const method = () => document.querySelector('input[name="method"]:checked').value;
+const countWords = s => (s.trim().match(/\S+/g) || []).length;
+const track = (event, props) => { try { window.posthog?.capture(event, props); } catch {} };
+
+let plainText = "";
+let busy = false;
+
+function getWps() {
+  const v = parseFloat(wpsInput.value);
+  return isFinite(v) && v >= 0.5 && v <= 6 ? v : null;
+}
+
+function updateState() {
+  $("qCount").textContent = question.value.length ? `${question.value.length} / 1000` : "";
+  const rw = countWords(resume.value);
+  $("rCount").textContent = rw ? `${rw} words` : "";
+  const wps = getWps();
+  wpsInput.setCustomValidity(wps ? "" : "Enter a pace between 0.5 and 6 words per second.");
+  $("goBtn").disabled = busy || !question.value.trim() || !resume.value.trim() || !wps;
+}
+
+function showMessage(text, cls) {
+  output.className = cls;
+  output.textContent = text;
+  $("copyBtn").disabled = true;
+  plainText = "";
+}
+
+function render(res, wps) {
+  output.className = "";
+  output.innerHTML = "";
+  const lines = [];
+  for (const sec of res.sections) {
+    const p = document.createElement("p");
+    const tag = document.createElement("span");
+    tag.className = "tag"; tag.textContent = sec.label;
+    p.appendChild(tag);
+    if (sec.text) {
+      p.appendChild(document.createTextNode(sec.text)); // textContent, never innerHTML, for model output
+      lines.push(sec.text);
+    } else {
+      const m = document.createElement("span");
+      m.className = "missing";
+      m.textContent = `Your resume didn't give enough for the ${sec.label.toLowerCase()}.`;
+      p.appendChild(m);
+    }
+    output.appendChild(p);
+  }
+  if (res.gaps.length) {
+    const box = document.createElement("div");
+    box.className = "gaps";
+    const h = document.createElement("strong"); h.textContent = "To make this stronger";
+    const ul = document.createElement("ul");
+    res.gaps.forEach(g => { const li = document.createElement("li"); li.textContent = g; ul.appendChild(li); });
+    box.append(h, ul);
+    output.appendChild(box);
+  }
+  plainText = lines.join("\n\n");
+
+  const secs = res.words / wps;
+  $("outCount").innerHTML = `<strong>${res.words}</strong> / ${res.budget} words`;
+  $("outCount").classList.toggle("over", res.overBudget);
+  $("outTime").textContent = `≈ ${Math.round(secs)} sec at ${wps} words/sec` + (res.overBudget ? " (over 60 sec)" : "");
+  $("meterBar").style.width = Math.min(100, (secs / SECONDS) * 100) + "%";
+  $("meterBar").classList.toggle("over", res.overBudget);
+  $("cost").textContent = `This run: $${res.costUsd.toFixed(4)} · Today: $${res.spentTodayUsd.toFixed(4)} of $${res.dailyBudgetUsd.toFixed(2)} · ${res.model}`;
+  $("copyBtn").disabled = !plainText;
+}
+
+async function run() {
+  const wps = getWps();
+  if (busy || $("goBtn").disabled) { if (!wps) wpsInput.reportValidity(); return; }
+  busy = true; updateState();
+  $("goBtn").textContent = "Writing…";
+  showMessage("Writing your answer…", "empty");
+  $("meterBar").style.width = "0";
+  track("answer_requested", { method: method(), wps, resume_words: countWords(resume.value) });
+
+  try {
+    const r = await fetch("/api/reform", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: question.value, resume: resume.value, wps, method: method() }),
+    });
+    const data = await r.json().catch(() => ({ error: "The server sent an unreadable reply." }));
+    if (!r.ok) throw new Error(data.error || `Request failed (HTTP ${r.status}).`);
+    render(data, wps);
+    track("answer_generated", { method: method(), wps, words: data.words, budget: data.budget, over_budget: data.overBudget, cost_usd: data.costUsd });
+  } catch (err) {
+    const msg = err instanceof TypeError ? "Can't reach the local server. Is `npm start` still running?" : err.message;
+    showMessage(msg, "error");
+    track("answer_failed", { reason: msg });
+  } finally {
+    busy = false;
+    $("goBtn").textContent = "Write answer →";
+    updateState();
+  }
+}
+
+[question, resume, wpsInput].forEach(el => el.addEventListener("input", updateState));
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); run(); }
+});
+$("goBtn").addEventListener("click", run);
+$("clearBtn").addEventListener("click", () => {
+  question.value = ""; resume.value = "";
+  showMessage(EMPTY_MSG, "empty");
+  $("outCount").innerHTML = `<strong>0</strong> words`; $("outTime").textContent = ""; $("cost").textContent = "";
+  $("meterBar").style.width = "0";
+  updateState(); question.focus();
+});
+$("copyBtn").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(plainText); $("copyBtn").textContent = "Copied"; track("answer_copied"); }
+  catch { $("copyBtn").textContent = "Copy failed"; }
+  setTimeout(() => $("copyBtn").textContent = "Copy", 1400);
+});
+$("sampleBtn").addEventListener("click", () => {
+  // A made-up resume for demos; no real person.
+  question.value = "Tell me about a time you improved a process at work.";
+  resume.value = [
+    "Alex Rivera — Operations Analyst",
+    "",
+    "EXPERIENCE",
+    "Operations Analyst, Northline Logistics (2022–2025)",
+    "- Replaced manual weekly delivery spreadsheets with an automated nightly dashboard pulling from the shipping system",
+    "- Cut reporting errors by ~90% and saved 6 hours of manual work per week",
+    "- Interviewed 5 regional managers to define the metrics that mattered; trained the team in 2 sessions",
+    "- Rolled the dashboard out to 2 additional teams at management's request",
+    "",
+    "Operations Intern, Harbor Freight Partners (Summer 2021)",
+    "- Mapped the returns process and proposed a checklist that reduced missed pickups",
+    "",
+    "EDUCATION",
+    "B.S. Business Analytics, State University, 2022",
+    "",
+    "SKILLS",
+    "SQL, Excel, Tableau, process mapping, stakeholder interviews",
+  ].join("\n");
+  updateState(); run();
+});
+
+updateState();
+</script>
+</body>
+</html>
