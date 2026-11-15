@@ -15,11 +15,16 @@
 | `app/public/index.html` | The UI. Talks only to `/api/reform` and never sees the API key. |
 | `tests/reform.test.js` | Deterministic `node:test` tests for `app/reform.js`. |
 | `docs/` | Public GitHub Pages Product Page and the Build 1 browser-only prototypes. **Never put the app or keys here.** |
-| `.env` (gitignored) | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `DAILY_BUDGET_USD`, `PORT`. See `.env.example`. |
+| `.env` (gitignored) | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `DAILY_BUDGET_USD`, `PORT`, `POSTHOG_PROJECT_TOKEN`, `POSTHOG_HOST`. See `.env.example`. |
 | `.spend.json` (gitignored) | Today's AI spend and run count, written by the server. |
 
 ### Data flow (one user action)
 Browser → `POST /api/reform` with `{question, resume, wps, method}` → server checks the input and the daily budget → Claude Messages API (structured JSON output, effort `low`, `max_tokens` 2000, 30 s timeout) → server parses the reply and **counts the words itself**. If the answer is over budget or unreadable, the server retries once → the browser gets the sections, gaps, word count, and cost.
+
+### Analytics (PostHog)
+- Local app: `app/server.js` injects `POSTHOG_PROJECT_TOKEN`/`POSTHOG_HOST` from `.env` into the page (`<!-- POSTHOG_CONFIG -->` marker); with no token, analytics is off. Product Page: the snippet with the public `phc_` token is in `docs/index.html` (static hosting has no env).
+- Events: autocaptured pageviews and clicks, plus `answer_requested`, `answer_generated`, `answer_failed`, `answer_copied` from `app/public/index.html`.
+- Privacy: never send question, resume, or answer text in event properties. The answer box has `ph-no-capture` so it is hidden in session replays; text inputs are masked by default.
 
 ### AI & key rules for this project
 - The API key is read only in `app/server.js` from `process.env`. Never send it to the browser, log it, or put it in `docs/`.
