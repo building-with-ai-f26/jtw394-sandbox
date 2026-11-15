@@ -21,6 +21,11 @@ const MAX_ATTEMPTS = 2; // one retry if the answer is over budget or unreadable
 const TIMEOUT_MS = 30000;
 const MAX_BODY_BYTES = 64 * 1024;
 
+// PostHog (analytics). The project token is a public, browser-side key, but it still lives in .env
+// so the code has no hard-coded project. With no token, the page loads without analytics.
+const POSTHOG_PROJECT_TOKEN = process.env.POSTHOG_PROJECT_TOKEN || "";
+const POSTHOG_HOST = process.env.POSTHOG_HOST || "";
+
 const PAGE = path.join(__dirname, "public", "index.html");
 const SPEND_FILE = path.join(__dirname, "..", ".spend.json"); // gitignored
 
@@ -152,6 +157,14 @@ async function handleReform(body) {
   }];
 }
 
+// Serves the page with the PostHog settings filled in. JSON.stringify plus escaping "<" keeps the
+// values from breaking out of the <script> tag. Only the PostHog token/host go here, never the AI key.
+function renderPage() {
+  const config = POSTHOG_PROJECT_TOKEN ? { token: POSTHOG_PROJECT_TOKEN, host: POSTHOG_HOST } : null;
+  const tag = `<script>window.POSTHOG_CONFIG = ${JSON.stringify(config).replace(/</g, "\\u003c")};</script>`;
+  return fs.readFileSync(PAGE, "utf8").replace("<!-- POSTHOG_CONFIG -->", tag);
+}
+
 // ---- HTTP plumbing ----
 function send(res, status, body, type = "application/json; charset=utf-8") {
   res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store" });
@@ -178,7 +191,7 @@ function readJson(req) {
 const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
-      return send(res, 200, fs.readFileSync(PAGE), "text/html; charset=utf-8");
+      return send(res, 200, renderPage(), "text/html; charset=utf-8");
     }
     if (req.method === "POST" && req.url === "/api/reform") {
       const [status, body] = await handleReform(await readJson(req));
@@ -197,5 +210,6 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`Done In 60 Seconds running at http://${HOST}:${PORT}`);
   console.log(`Model: ${MODEL} · Daily budget: $${DAILY_BUDGET_USD.toFixed(2)} · Spent today: $${readSpend().usd.toFixed(4)}`);
+  console.log(POSTHOG_PROJECT_TOKEN ? `PostHog analytics: on (${POSTHOG_HOST})` : "PostHog analytics: off (POSTHOG_PROJECT_TOKEN not set in .env)");
   if (keyLooksUnset) console.warn("WARNING: ANTHROPIC_API_KEY is not set in .env (it should start with sk-ant-).");
 });
