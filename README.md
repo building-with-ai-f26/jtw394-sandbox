@@ -1,6 +1,6 @@
-# 50 words or less
+# Done in 60 Seconds
 
-> **One-line pitch:** Helping writers and speakers improve dictation and precision
+> **One-line pitch:** Helping interviewees answer quickly and succinctly 
 
 - **Builder:** Joseph Williams (`@jtw394-ship-it`)
 - **Pod:** Pod 12
