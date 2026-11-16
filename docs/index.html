@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>50 or Less · Building with AI (Fall 2026)</title>
+  <title>Done in 60 Seoncds · Building with AI (Fall 2026)</title>
 
   <!-- PostHog analytics (pageviews, clicks, session replay). Snippet from posthog.com/docs/libraries/js.
        The phc_ project token is a public, write-only key meant for browser code; it is not a secret. -->
@@ -150,8 +150,8 @@
     <!-- HERO / PRODUCT PITCH -->
     <header>
       <span class="eyebrow">NYU Stern · Building with AI · Fall 2026</span>
-      <h1>50 or Less</h1>
-      <p class="tagline">Cut interview answers down to 50 words or less.</p>
+      <h1>Done in 60 Seconds</h1>
+      <p class="tagline">Answer HireVue questions in less than a minute, hand tailored to your needs.</p>
       <div class="cta-row">
         <a class="btn" href="#live-demo" onclick="window.posthog && posthog.capture('clicked_try_product')">See the Product →</a>
         <a class="btn btn-secondary" href="#prd">Read the Living PRD</a>
@@ -163,7 +163,7 @@
     <section id="live-demo">
       <h2>Product Showcase (Prototype / Live App / 2-Min Video)</h2>
       <p>
-        <strong>Current Status:</strong> Build 1: local prototype<br />
+        <strong>Current Status:</strong> Build 2: local slice<br />
         <strong>Demo:</strong> <a href="prototype.html">Try the prototype</a> (runs entirely in your browser) <br />
       </p>
       <img src="60SecsorLess Screenshot.png" alt="Screenshot of the Done In 60 Seconds local app: an interview question and pasted resume on the left, and Claude's 104-word STAR answer (about 42 seconds at 2.5 words per second, $0.0003 per run) on the right" width="600">
@@ -177,25 +177,25 @@
       <h3>1. Target User & The Job to Be Done</h3>
       <p><strong>Who is this for?</strong> Me and my NYU Stern MBA classmates preparing for automated one-way video interviews (e.g., HireVue), where answers have to be short and fit a strict time limit.</p>
       <p><strong>The painful "Before" workflow:</strong> Manually edit and cut down word count, which can often be slow and clunky</p>
-      <p><strong>The "After" workflow with this product:</strong> Input a single block of text and have it cut down to 50 words or less</p>
+      <p><strong>The "After" workflow with this product:</strong> Provide your question, resume, and speaking speed and get a precisely tailored answer.</p>
 
       <h3>2. Scope & Explicit Non-Goals</h3>
       <ul>
-        <li><strong>In Scope (Core Workflow):</strong> Turn large blocks of text into 50 words.</li>
+        <li><strong>In Scope (Core Workflow):</strong> Convert broad resume text into specific answers.</li>
         <li><strong>Out of Scope #1:</strong> Self-editing or spell check</li>
         <li><strong>Out of Scope #2:</strong> Making specific genre toggles (i.e. for a speech/short answer question/etc)</li>
         <li><strong>Out of Scope #3:</strong> Setting a specific word target </li>
       </ul>
 
       <h3>3. How It Works Under the Hood & Riskiest Assumption (Week 2+)</h3>
-      <p><strong>Riskiest Assumption:</strong> [What is the #1 technical or user risk that could sink this product?]</p>
+      <p><strong>Riskiest Assumption:</strong> HireVue and other automated interview software often checks for active AI software in other tabs.</p>
       <p><strong>Simple Architecture:</strong> [User Input] → [Your App / Server] → [AI Model / Tool] → [Output]</p>
 
       <h3>4. Unit Economics & Analytics Snapshot (Updated Weekly)</h3>
       <div class="grid-2">
         <div class="stat-box">
           <div class="stat-label">Cumulative Build Spend</div>
-          <div class="stat-value">$20.00</div>
+          <div class="stat-value">$40.00</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">Est. Cost Per User Run</div>
@@ -231,9 +231,9 @@
       <div class="log-entry">
         <h3>Build 2 · Smallest Local Version & PostHog (Due Nov 16)</h3>
         <ul>
-          <li><strong>What shipped:</strong> [Local working slice, PostHog verified on this page and the local app, PRD v2, and local setup in AGENTS.md]</li>
-          <li><strong>What broke / changed in PRD:</strong> [Fill in]</li>
-          <li><strong>Cost & time this week:</strong> $[0.00] · [0] hours</li>
+          <li><strong>What shipped:</strong> A fully operational local slice with both Claude API and PostHog integration.</li>
+          <li><strong>What broke / changed in PRD:</strong> Had to change from OpenRouter to Claude for ease of running the software.</li>
+          <li><strong>Cost & time this week:</strong> $20.00 for Claude tokens · ~5 hours</li>
         </ul>
       </div>
 
