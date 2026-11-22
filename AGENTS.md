@@ -50,7 +50,20 @@ The live app is a Render **Web Service** (free plan) that deploys automatically 
   4. Verify the live URL: the page loads and one answer generates (on a phone too).
 - **Known limits:** the free instance sleeps after ~15 min idle (first load takes 30-60 s), and its disk is wiped on restart/redeploy, so `.spend.json` (the daily cap) resets then. The Anthropic Console monthly limit is the real backstop.
 
-## 4. Non-Negotiable Engineering Rules
+## 4. Ask me first
+The agent must stop and get the human's explicit OK, in this conversation and for this specific action, before it:
+- **Deletes or rewrites anything that can't be undone:** `rm -rf`, deleting files or branches, `git reset --hard`, `git push --force`, rewriting git history, or deleting `.spend.json`, `journal/` or `docs/` content. (There is no database. If one is added, any schema change, delete or migration goes on this list, and a backup comes first.)
+- **Ships to production:** merges into `main`, or pushes directly to `main`. Render deploys `main` automatically.
+- **Touches keys, secrets or permissions:** reading, printing, editing or rotating `.env` or `ANTHROPIC_API_KEY`; changing Render environment variables; GitHub or Render access settings; or setting `HOST=0.0.0.0` anywhere other than Render.
+- **Does anything that costs money:**
+  - sends valid requests that reach Claude (on the live site or locally with a real key)
+  - changes `ANTHROPIC_MODEL`, `max_tokens`, effort, `DAILY_BUDGET_USD` or the rate limits
+  - upgrades a Render plan or adds a paid service
+- **Weakens a security control:** removing or loosening the rate limits, input limits, `<resume>` tagging, `textContent` rendering or security headers.
+
+Read-only checks are always fine without asking: tests, `npm audit`, key searches, and empty `{}` requests that never reach Claude.
+
+## 5. Non-Negotiable Engineering Rules
 1. **Plan before coding:** Before touching multiple files, propose a brief plan and wait for approval.
 2. **Small batches:** Make small, focused changes that can be reviewed and explained by a human in a single Pull Request.
 3. **Explainability:** Avoid unnecessary abstractions or dependencies. Help the human builder understand the main components, what changed, why it matters, what could break, and how it was checked.
