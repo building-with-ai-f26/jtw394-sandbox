@@ -163,8 +163,9 @@
     <section id="live-demo">
       <h2>Product Showcase (Prototype / Live App / 2-Min Video)</h2>
       <p>
-        <strong>Current Status:</strong> Build 2: local slice<br />
-        <strong>Demo:</strong> <a href="prototype.html">Try the prototype</a> (runs entirely in your browser) <br />
+        <strong>Current Status:</strong> Build 3: live on the web<br />
+        <strong>Live app:</strong> <a href="https://done-in-60-seconds.onrender.com/">done-in-60-seconds.onrender.com</a> (the first load can take up to a minute while the free server wakes up)<br />
+        <strong>Build 1 prototype:</strong> <a href="prototype.html">Try the prototype</a> (runs entirely in your browser) <br />
       </p>
       <img src="60SecsorLess Screenshot.png" alt="Screenshot of the Done In 60 Seconds local app: an interview question and pasted resume on the left, and Claude's 104-word STAR answer (about 42 seconds at 2.5 words per second, $0.0003 per run) on the right" width="600">
     </section>
@@ -172,7 +173,7 @@
     <!-- LIVING PRD (Updated every week!) -->
     <section id="prd">
       <h2>Living PRD (Product Requirements Document)</h2>
-      <p class="meta">Updated every week as we test with real users and learn what works.</p>
+      <p class="meta">Updated every week as we test with real users and learn what works. <strong>PRD v3</strong>, updated Nov 22, 2026 (Build 3): added hosting, data and security choices.</p>
 
       <h3>1. Target User & The Job to Be Done</h3>
       <p><strong>Who is this for?</strong> Me and my NYU Stern MBA classmates preparing for automated one-way video interviews (e.g., HireVue), where answers have to be short and fit a strict time limit.</p>
@@ -190,8 +191,25 @@
       <h3>3. How It Works Under the Hood & Riskiest Assumption (Week 2+)</h3>
       <p><strong>Riskiest Assumption:</strong> HireVue and other automated interview software often checks for active AI software in other tabs.</p>
       <p><strong>Simple Architecture:</strong> User sends question and resume text and speaking speed to server, server sends to AI through call, AI produces output, which is returned to the user</p>
+      <p><strong>Live setup (Build 3):</strong> Browser → Node.js server on Render → Claude Haiku 5.5 (Anthropic API) → server counts the words and checks the 60-second budget → answer back to the browser. The API key lives only on the server.</p>
 
-      <h3>4. Unit Economics & Analytics Snapshot (Updated Weekly)</h3>
+      <h3>4. Hosting, Data & Security Choices (Build 3)</h3>
+      <ul>
+        <li><strong>Hosting: Render (free Web Service).</strong> The app is a small Node.js server, and Render runs that directly and redeploys automatically whenever <code>main</code> changes. GitHub Pages only hosts static pages and can't keep the API key secret. <em>Trade-off:</em> the free server sleeps after about 15 minutes idle, so the first visit can take up to a minute.</li>
+        <li><strong>Database: none, on purpose.</strong> The app saves nothing. Questions and resumes are used for one answer and then dropped, so there's no user data to leak and no sign-in to build. If we later add saved answers or accounts, we'd add a real database (Supabase or Neon) with Row Level Security.</li>
+        <li><strong>Security choices:</strong>
+          <ul>
+            <li><strong>API key:</strong> kept only in Render's environment settings, never in the page or the repo.</li>
+            <li><strong>Rate limits:</strong> 10 answers per visitor every 15 minutes, plus 60 per hour across the whole site. The audit found that the first version could be bypassed with a faked header; that was fixed and retested live.</li>
+            <li><strong>Spending caps:</strong> $1 per day in the app and $8 per month on the Anthropic account.</li>
+            <li><strong>Untrusted input:</strong> input size limits; the resume is treated as data, not instructions; AI output is shown as plain text.</li>
+            <li><strong>Browser:</strong> security headers block framing and file-type guessing.</li>
+          </ul>
+          Full audit, attack log and remaining issues: <a href="https://github.com/building-with-ai-f26/jtw394-sandbox/blob/main/SECURITY.md">SECURITY.md</a>.</li>
+        <li><strong>Analytics: PostHog on the live site.</strong> It records pageviews, clicks, session replay and funnel events (<code>answer_requested</code> → <code>answer_generated</code> → <code>answer_copied</code>). Events never include question, resume or answer text, and the answer box is hidden in replays.</li>
+      </ul>
+
+      <h3>5. Unit Economics & Analytics Snapshot (Updated Weekly)</h3>
       <div class="grid-2">
         <div class="stat-box">
           <div class="stat-label">Cumulative Build Spend</div>
@@ -202,8 +220,8 @@
           <div class="stat-value">~$0.0003</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">User Evidence (Analytics from Build 2)</div>
-          <div class="stat-value">None yet; starts Build 2</div>
+          <div class="stat-label">User Evidence (PostHog, as of Nov 22)</div>
+          <div class="stat-value">3 answers generated (2 local, 1 live) · first live session recorded</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">Sponsor Call (Week 6)</div>
