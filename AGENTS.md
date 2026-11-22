@@ -11,9 +11,10 @@
 | Path | What it is |
 | --- | --- |
 | `app/server.js` | Node server (`127.0.0.1` locally, `0.0.0.0` on Render). Serves the page, handles `POST /api/reform`, calls Claude with the key from `.env`, and enforces the daily spend cap. |
+| `app/ratelimit.js` | Per-visitor rate limit for `/api/reform` (10 requests / 15 min per IP, in memory). Returns `429` with `Retry-After`. |
 | `app/reform.js` | Pure logic: input checks, word budget (pace × 60), prompt + JSON schema, reply parsing, and cost from token counts (per-model price table). No network. |
 | `app/public/index.html` | The UI. Talks only to `/api/reform` and never sees the API key. |
-| `tests/reform.test.js` | Deterministic `node:test` tests for `app/reform.js`. |
+| `tests/reform.test.js`, `tests/ratelimit.test.js` | Deterministic `node:test` tests for `app/reform.js` and `app/ratelimit.js`. |
 | `docs/` | Public GitHub Pages Product Page and the Build 1 browser-only prototypes. **Never put the app or keys here.** |
 | `.env` (gitignored) | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `DAILY_BUDGET_USD`, `PORT`, `HOST`, `POSTHOG_PROJECT_TOKEN`, `POSTHOG_HOST`. See `.env.example`. |
 | `.spend.json` (gitignored) | Today's AI spend and run count, written by the server. |
@@ -28,9 +29,9 @@ Browser → `POST /api/reform` with `{question, resume, wps, method}` → server
 
 ### AI & key rules for this project
 - The API key is read only in `app/server.js` from `process.env`. Never send it to the browser, log it, or put it in `docs/`.
-- The server binds to `127.0.0.1` by default. Only the host (Render) sets `HOST=0.0.0.0`; never set it in a local `.env` or hard-code it. Keep the input size limits, `max_tokens`, and `DAILY_BUDGET_USD` guard in place.
+- The server binds to `127.0.0.1` by default. Only the host (Render) sets `HOST=0.0.0.0`; never set it in a local `.env` or hard-code it. Keep the input size limits, `max_tokens`, the per-visitor rate limit, and `DAILY_BUDGET_USD` guard in place. Any new route that calls a paid API must go through the rate limiter.
 - The resume is untrusted user data: keep it inside `<resume>` tags, and render model output with `textContent`, never `innerHTML`.
-- Also set a monthly spend limit in the Anthropic Console (Settings → Limits). The in-app cap only covers this app. If you change `ANTHROPIC_MODEL`, update `PRICES` in `app/reform.js` too.
+- Also set a monthly spend limit in the Anthropic Console (Settings → Spend limits; it is monthly, currently $8). The in-app cap only covers this app. If you change `ANTHROPIC_MODEL`, update `PRICES` in `app/reform.js` too.
 
 ## 2. Commands
 - **Install dependencies:** `npm install` (`node -v` must be 22+). First run: `cp .env.example .env`, then add your Anthropic key.

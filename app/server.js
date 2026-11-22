@@ -9,6 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const Anthropic = require("@anthropic-ai/sdk").default;
 const { validateInput, budgetFor, buildPrompt, replySchema, parseReply, costUsd } = require("./reform");
+const { createRateLimiter, clientIp } = require("./ratelimit");
 
 const PORT = Number(process.env.PORT) || 3000;
 // Default: only reachable from this computer. Render sets HOST=0.0.0.0 so the public URL can reach it.
@@ -21,6 +22,10 @@ const MAX_OUTPUT_TOKENS = 2000;
 const MAX_ATTEMPTS = 2; // one retry if the answer is over budget or unreadable
 const TIMEOUT_MS = 30000;
 const MAX_BODY_BYTES = 64 * 1024;
+// Per-visitor limit on /api/reform (each call costs money): 10 requests per 15 minutes.
+const RATE_LIMIT = 10;
+const RATE_WINDOW_MS = 15 * 60 * 1000;
+const limiter = createRateLimiter({ limit: RATE_LIMIT, windowMs: RATE_WINDOW_MS });
 
 // PostHog (analytics). The project token is a public, browser-side key, but it still lives in .env
 // so the code has no hard-coded project. With no token, the page loads without analytics.
@@ -195,6 +200,13 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, renderPage(), "text/html; charset=utf-8");
     }
     if (req.method === "POST" && req.url === "/api/reform") {
+      // Rate limit first, before reading the body, so every call counts (even junk ones).
+      const rl = limiter.check(clientIp(req));
+      if (!rl.ok) {
+        res.setHeader("Retry-After", String(rl.retryAfterSec));
+        const mins = Math.ceil(rl.retryAfterSec / 60);
+        return send(res, 429, { error: `Too many requests. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` });
+      }
       const [status, body] = await handleReform(await readJson(req));
       return send(res, status, body);
     }
