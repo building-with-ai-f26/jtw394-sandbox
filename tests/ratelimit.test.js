@@ -40,7 +40,26 @@ test("different visitors have separate limits", () => {
   assert.equal(limiter.check("2.2.2.2").ok, true);
 });
 
-test("clientIp uses the first X-Forwarded-For entry, else the socket address", () => {
-  assert.equal(clientIp({ headers: { "x-forwarded-for": "9.9.9.9, 10.0.0.1" }, socket: {} }), "9.9.9.9");
+test("clientIp prefers CF-Connecting-IP, ignoring a faked X-Forwarded-For", () => {
+  const req = { headers: { "cf-connecting-ip": "5.5.5.5", "x-forwarded-for": "6.6.6.6, 5.5.5.5" }, socket: {} };
+  assert.equal(clientIp(req), "5.5.5.5");
+});
+
+test("clientIp uses the LAST X-Forwarded-For entry, so a visitor can't pick their own IP", () => {
+  // The visitor sent "1.2.3.4"; the proxy appended their real address 9.9.9.9.
+  assert.equal(clientIp({ headers: { "x-forwarded-for": "1.2.3.4, 9.9.9.9" }, socket: {} }), "9.9.9.9");
+  assert.equal(clientIp({ headers: { "x-forwarded-for": "7.7.7.7, 9.9.9.9" }, socket: {} }), "9.9.9.9");
+});
+
+test("clientIp falls back to the socket address with no proxy headers", () => {
   assert.equal(clientIp({ headers: {}, socket: { remoteAddress: "127.0.0.1" } }), "127.0.0.1");
+});
+
+test("a site-wide limiter (one shared key) caps total calls across all visitors", () => {
+  let t = 0;
+  const site = createRateLimiter({ limit: 60, windowMs: 60 * 60 * 1000, now: () => t });
+  for (let i = 0; i < 60; i++) assert.equal(site.check("site").ok, true);
+  assert.equal(site.check("site").ok, false);
+  t += 60 * 60 * 1000;
+  assert.equal(site.check("site").ok, true);
 });
