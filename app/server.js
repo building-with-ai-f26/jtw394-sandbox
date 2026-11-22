@@ -1,5 +1,5 @@
 // Local server for "Done In 60 Seconds".
-// - Serves the page (app/public/index.html) at http://127.0.0.1:PORT
+// - Serves the page (app/public/index.html) at http://HOST:PORT (127.0.0.1 locally, 0.0.0.0 on Render)
 // - POST /api/reform: checks input, calls Claude with the key from .env, returns the structured answer
 // The API key only ever lives here on the server; it is never sent to the browser.
 // Run with: npm start   (which is: node --env-file-if-exists=.env app/server.js)
@@ -11,7 +11,8 @@ const Anthropic = require("@anthropic-ai/sdk").default;
 const { validateInput, budgetFor, buildPrompt, replySchema, parseReply, costUsd } = require("./reform");
 
 const PORT = Number(process.env.PORT) || 3000;
-const HOST = "127.0.0.1"; // only reachable from this computer
+// Default: only reachable from this computer. Render sets HOST=0.0.0.0 so the public URL can reach it.
+const HOST = process.env.HOST || "127.0.0.1";
 const API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-5-5";
 const DAILY_BUDGET_USD = Number(process.env.DAILY_BUDGET_USD) || 1.0;
