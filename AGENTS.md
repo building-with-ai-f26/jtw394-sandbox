@@ -10,12 +10,12 @@
 ### Project structure
 | Path | What it is |
 | --- | --- |
-| `app/server.js` | Local server on `127.0.0.1`. Serves the page, handles `POST /api/reform`, calls Claude with the key from `.env`, and enforces the daily spend cap. |
+| `app/server.js` | Node server (`127.0.0.1` locally, `0.0.0.0` on Render). Serves the page, handles `POST /api/reform`, calls Claude with the key from `.env`, and enforces the daily spend cap. |
 | `app/reform.js` | Pure logic: input checks, word budget (pace × 60), prompt + JSON schema, reply parsing, and cost from token counts (per-model price table). No network. |
 | `app/public/index.html` | The UI. Talks only to `/api/reform` and never sees the API key. |
 | `tests/reform.test.js` | Deterministic `node:test` tests for `app/reform.js`. |
 | `docs/` | Public GitHub Pages Product Page and the Build 1 browser-only prototypes. **Never put the app or keys here.** |
-| `.env` (gitignored) | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `DAILY_BUDGET_USD`, `PORT`, `POSTHOG_PROJECT_TOKEN`, `POSTHOG_HOST`. See `.env.example`. |
+| `.env` (gitignored) | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `DAILY_BUDGET_USD`, `PORT`, `HOST`, `POSTHOG_PROJECT_TOKEN`, `POSTHOG_HOST`. See `.env.example`. |
 | `.spend.json` (gitignored) | Today's AI spend and run count, written by the server. |
 
 ### Data flow (one user action)
@@ -28,7 +28,7 @@ Browser → `POST /api/reform` with `{question, resume, wps, method}` → server
 
 ### AI & key rules for this project
 - The API key is read only in `app/server.js` from `process.env`. Never send it to the browser, log it, or put it in `docs/`.
-- The server binds to `127.0.0.1` only. Keep the input size limits, `max_tokens`, and `DAILY_BUDGET_USD` guard in place.
+- The server binds to `127.0.0.1` by default. Only the host (Render) sets `HOST=0.0.0.0`; never set it in a local `.env` or hard-code it. Keep the input size limits, `max_tokens`, and `DAILY_BUDGET_USD` guard in place.
 - The resume is untrusted user data: keep it inside `<resume>` tags, and render model output with `textContent`, never `innerHTML`.
 - Also set a monthly spend limit in the Anthropic Console (Settings → Limits). The in-app cap only covers this app. If you change `ANTHROPIC_MODEL`, update `PRICES` in `app/reform.js` too.
 
@@ -38,7 +38,18 @@ Browser → `POST /api/reform` with `{question, resume, wps, method}` → server
 - **Run deterministic tests:** `npm test`
 - **Run model evals:** not yet (Build 4)
 
-## 3. Non-Negotiable Engineering Rules
+## 3. Shipping (Render)
+The live app is a Render **Web Service** (free plan) that deploys automatically from `main`.
+- **Settings:** Language Node · Build `npm install` · Start `npm start` · Branch `main`.
+- **Environment variables (set in the Render dashboard, never in the repo):** `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `DAILY_BUDGET_USD`, `HOST=0.0.0.0`, `POSTHOG_PROJECT_TOKEN`, `POSTHOG_HOST`. Do not set `PORT`; Render provides it.
+- **Steps the agent follows:**
+  1. Work on a branch, run `npm test`, and check the app locally with `npm start`.
+  2. Open a pull request. The human reviews and merges it into `main`.
+  3. Render redeploys on its own. Watch the Render logs for `Done In 60 Seconds running at`.
+  4. Verify the live URL: the page loads and one answer generates (on a phone too).
+- **Known limits:** the free instance sleeps after ~15 min idle (first load takes 30-60 s), and its disk is wiped on restart/redeploy, so `.spend.json` (the daily cap) resets then. The Anthropic Console monthly limit is the real backstop.
+
+## 4. Non-Negotiable Engineering Rules
 1. **Plan before coding:** Before touching multiple files, propose a brief plan and wait for approval.
 2. **Small batches:** Make small, focused changes that can be reviewed and explained by a human in a single Pull Request.
 3. **Explainability:** Avoid unnecessary abstractions or dependencies. Help the human builder understand the main components, what changed, why it matters, what could break, and how it was checked.
