@@ -57,6 +57,13 @@ Not applicable: the app stores no files.
 ### 6. Dependency audit
 `npm audit` reported **0 vulnerabilities**. The only dependency is `@anthropic-ai/sdk` 1.8.0.
 
+### Analytics on the live site (PostHog)
+I checked on 2026-11-22 with a real Firefox visit to the live site:
+- **Events received:** `$pageview`, `answer_requested`, `answer_generated`, `answer_copied`, `$autocapture` and `$pageleave` all reached PostHog from `done-in-60-seconds.onrender.com`. They took a few minutes to appear.
+- **Session replay:** one recording of the visit was captured.
+- **No user text sent:** the custom events carry only numbers and settings (`wps`, `method`, `resume_words`, `words`, `budget`, `cost_usd`, `over_budget`), never the question, resume or answer text.
+- **Harmless Firefox warning:** Firefox rejected PostHog's `dmn_chk_…` test cookie for the shared `onrender.com` domain. This is expected, because `onrender.com` is a public suffix, and PostHog still works.
+
 ### 7. Security review by the coding agent
 The agent read every file in `app/` and attacked the live site.
 
