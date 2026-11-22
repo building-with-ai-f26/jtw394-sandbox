@@ -24,11 +24,15 @@ function createRateLimiter({ limit, windowMs, now = Date.now }) {
   return { check };
 }
 
-// Who is the visitor? On Render, the proxy puts the visitor's IP first in X-Forwarded-For.
+// Who is the visitor? Never trust the FIRST X-Forwarded-For entry: the visitor can write anything there
+// (security review, attack 1). Render sits behind Cloudflare, which sets CF-Connecting-IP to the real
+// address itself. Without it, use the LAST X-Forwarded-For entry (added by the proxy, not the visitor).
 // Locally there is no proxy, so use the connection's address.
 function clientIp(req) {
+  const cf = req.headers["cf-connecting-ip"];
+  if (typeof cf === "string" && cf.trim()) return cf.trim();
   const fwd = req.headers["x-forwarded-for"];
-  if (typeof fwd === "string" && fwd.trim()) return fwd.split(",")[0].trim();
+  if (typeof fwd === "string" && fwd.trim()) return fwd.split(",").pop().trim();
   return req.socket.remoteAddress || "unknown";
 }
 

@@ -26,6 +26,10 @@ const MAX_BODY_BYTES = 64 * 1024;
 const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const limiter = createRateLimiter({ limit: RATE_LIMIT, windowMs: RATE_WINDOW_MS });
+// Site-wide limit on real AI calls (all visitors together): 60 per hour. No header trick gets around it.
+// Counted only for valid requests that would call Claude, so junk requests can't lock everyone out.
+const SITE_LIMIT = 60;
+const siteLimiter = createRateLimiter({ limit: SITE_LIMIT, windowMs: 60 * 60 * 1000 });
 
 // PostHog (analytics). The project token is a public, browser-side key, but it still lives in .env
 // so the code has no hard-coded project. With no token, the page loads without analytics.
@@ -120,6 +124,11 @@ async function handleReform(body) {
   if (spend.usd >= DAILY_BUDGET_USD) {
     return [429, { error: `Daily AI budget of $${DAILY_BUDGET_USD.toFixed(2)} reached. It resets tomorrow.` }];
   }
+  const site = siteLimiter.check("site");
+  if (!site.ok) {
+    const mins = Math.ceil(site.retryAfterSec / 60);
+    return [429, { error: `The app is busy right now. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` }];
+  }
 
   const input = checked.value;
   const budget = budgetFor(input.wps);
@@ -173,7 +182,14 @@ function renderPage() {
 
 // ---- HTTP plumbing ----
 function send(res, status, body, type = "application/json; charset=utf-8") {
-  res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store" });
+  res.writeHead(status, {
+    "Content-Type": type,
+    "Cache-Control": "no-store",
+    // Browser hardening (security review): no framing by other sites, no type sniffing, no referrer leaks.
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+  });
   res.end(type.startsWith("application/json") ? JSON.stringify(body) : body);
 }
 

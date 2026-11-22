@@ -11,7 +11,7 @@
 | Path | What it is |
 | --- | --- |
 | `app/server.js` | Node server (`127.0.0.1` locally, `0.0.0.0` on Render). Serves the page, handles `POST /api/reform`, calls Claude with the key from `.env`, and enforces the daily spend cap. |
-| `app/ratelimit.js` | Per-visitor rate limit for `/api/reform` (10 requests / 15 min per IP, in memory). Returns `429` with `Retry-After`. |
+| `app/ratelimit.js` | Rate limits for `/api/reform`: 10 requests / 15 min per visitor IP (from `CF-Connecting-IP`, else the last `X-Forwarded-For` entry, never the first) plus 60 AI calls / hour site-wide. In memory. Returns `429`. |
 | `app/reform.js` | Pure logic: input checks, word budget (pace × 60), prompt + JSON schema, reply parsing, and cost from token counts (per-model price table). No network. |
 | `app/public/index.html` | The UI. Talks only to `/api/reform` and never sees the API key. |
 | `tests/reform.test.js`, `tests/ratelimit.test.js` | Deterministic `node:test` tests for `app/reform.js` and `app/ratelimit.js`. |
@@ -57,3 +57,4 @@ The live app is a Render **Web Service** (free plan) that deploys automatically 
 4. **Verify changes:** Run relevant checks. For a reproducible logic bug, use a failing test to demonstrate the fix when practical. Record manual checks and known limitations; follow the selected Build 4 evaluation track.
 5. **Zero secrets in code:** Never hardcode API keys, tokens, or credentials. Always read from environment variables (`.env`) and update `.env.example` when new variables are needed.
 6. **Stop when looping:** If a fix fails twice in a row, stop, summarize what failed, and ask the human before trying a third approach.
+7. **Never trust what the visitor can write (learned the hard way):** In Build 3 the agent's first rate limit identified visitors by the *first* `X-Forwarded-For` entry, which the visitor controls; the security review bypassed it with a fake header. Any security decision (who the visitor is, what they may do) must use values the proxy or server sets, and every such fix must be re-tested on the live site with a spoofed request.
